@@ -20,12 +20,16 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"encoding/json"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
+	appsv1 "k8s.io/api/apps/v1"
+	apiv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // generateCmd represents the generate command
@@ -52,7 +56,12 @@ var generateCmd = &cobra.Command{
 
 		if taskDefintion != "" {
 			td := getTaskDefiniton(taskDefintion, fileName)
-			generateDeploymentYAML(td, fileName)
+			// generateDeploymentYAML(td, fileName)
+			d := generateDeploymentJSON(td, fileName)
+			bytes, _ := json.Marshal(d)
+			fmt.Println(string(bytes))
+		
+
 		} else {
 			fmt.Println("Task definition required")
 		}
@@ -62,6 +71,7 @@ var generateCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(generateCmd)
 	generateCmd.PersistentFlags().String("task", "td", "A valid task definition in ECS")
+	generateCmd.PersistentFlags().String("fname", "f", "File to write the YAML file into")
 }
 
 func getTaskDefiniton(taskDefinition string, fileName string) ecs.DescribeTaskDefinitionOutput {
@@ -111,6 +121,50 @@ func generateDeploymentYAML(output ecs.DescribeTaskDefinitionOutput, fileName st
 
 	fmt.Println("Writing K8s Deployment file to : ", fileName)
 	_ = ioutil.WriteFile(fileName, file, 0644)
+}
+
+func generateDeploymentJSON(output ecs.DescribeTaskDefinitionOutput, fileName string) *appsv1.Deployment {	
+	var kubeContainers []apiv1.Container
+
+	for _, object := range output.TaskDefinition.ContainerDefinitions {
+		c := apiv1.Container{
+			Name:  *object.Name,
+			Image: *object.Image,
+		}
+		kubeContainers = append(kubeContainers, c)
+	}
+
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: *output.TaskDefinition.Family,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: new(int32),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": "demo",
+				},
+			},
+			Template: apiv1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app": "demo",
+					},
+				},
+				Spec: apiv1.PodSpec{
+					Containers: kubeContainers,
+				},
+			},
+		},
+	}
+
+	bytes, _ := json.MarshalIndent(deployment, "", "  ")
+	fileName = fileName + ".json"
+
+	fmt.Println("Writing K8s Deployment file to : ", fileName)
+	_ = ioutil.WriteFile(fileName, bytes, 0644)
+
+	return deployment
 }
 
 func getDefaultFileName() string {
