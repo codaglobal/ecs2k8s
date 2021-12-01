@@ -17,14 +17,14 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"encoding/json"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
@@ -49,33 +49,38 @@ var generateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		taskDefintion, _ := cmd.Flags().GetString("task")
 		fileName, _ := cmd.Flags().GetString("fname")
+		rCount, _ := cmd.Flags().GetInt("rcount")
 
 		if fileName == "" {
 			fileName = getDefaultFileName()
 		}
 
-		if taskDefintion != "" {
-			td := getTaskDefiniton(taskDefintion, fileName)
-			// generateDeploymentYAML(td, fileName)
-			d := generateDeploymentJSON(td, fileName)
-			bytes, _ := json.Marshal(d)
-			fmt.Println(string(bytes))
-		
-
-		} else {
+		if taskDefintion == "" {
 			fmt.Println("Task definition required")
+			return
 		}
+
+		td := getTaskDefiniton(taskDefintion, fileName)
+		d := generateDeploymentJSON(td, fileName, rCount)
+		bytes, _ := json.MarshalIndent(d, "", "  ")
+		fileName = fileName + ".json"
+
+		fmt.Println("Writing K8s Deployment file to : ", fileName)
+		_ = ioutil.WriteFile(fileName, bytes, 0644)
+
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(generateCmd)
-	generateCmd.PersistentFlags().String("task", "td", "A valid task definition in ECS")
-	generateCmd.PersistentFlags().String("fname", "f", "File to write the YAML file into")
+	generateCmd.PersistentFlags().String("task", "", "A valid task definition in ECS")
+	generateCmd.PersistentFlags().String("fname", "", "File to write the YAML file into")
+	generateCmd.PersistentFlags().Int("rcount", 1, "Number of replicas")
 }
 
 func getTaskDefiniton(taskDefinition string, fileName string) ecs.DescribeTaskDefinitionOutput {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
+	fmt.Println("Fetching", taskDefinition, "from ECS...")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -84,6 +89,7 @@ func getTaskDefiniton(taskDefinition string, fileName string) ecs.DescribeTaskDe
 
 	output, err := client.DescribeTaskDefinition(context.TODO(), &ecs.DescribeTaskDefinitionInput{
 		TaskDefinition: &taskDefinition,
+		Include:        []types.TaskDefinitionField{"TAGS"},
 	})
 
 	if err != nil {
@@ -94,7 +100,6 @@ func getTaskDefiniton(taskDefinition string, fileName string) ecs.DescribeTaskDe
 }
 
 func generateDeploymentYAML(output ecs.DescribeTaskDefinitionOutput, fileName string) {
-
 	var kubeContainers []kubeContainer
 
 	for _, object := range output.TaskDefinition.ContainerDefinitions {
@@ -123,8 +128,10 @@ func generateDeploymentYAML(output ecs.DescribeTaskDefinitionOutput, fileName st
 	_ = ioutil.WriteFile(fileName, file, 0644)
 }
 
-func generateDeploymentJSON(output ecs.DescribeTaskDefinitionOutput, fileName string) *appsv1.Deployment {	
+func generateDeploymentJSON(output ecs.DescribeTaskDefinitionOutput, fileName string, rCount int) *appsv1.Deployment {
 	var kubeContainers []apiv1.Container
+	var replicas *int32 = new(int32)
+	*replicas = int32(rCount)
 
 	for _, object := range output.TaskDefinition.ContainerDefinitions {
 		c := apiv1.Container{
@@ -139,7 +146,7 @@ func generateDeploymentJSON(output ecs.DescribeTaskDefinitionOutput, fileName st
 			Name: *output.TaskDefinition.Family,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: new(int32),
+			Replicas: replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app": "demo",
@@ -158,17 +165,5 @@ func generateDeploymentJSON(output ecs.DescribeTaskDefinitionOutput, fileName st
 		},
 	}
 
-	bytes, _ := json.MarshalIndent(deployment, "", "  ")
-	fileName = fileName + ".json"
-
-	fmt.Println("Writing K8s Deployment file to : ", fileName)
-	_ = ioutil.WriteFile(fileName, bytes, 0644)
-
 	return deployment
-}
-
-func getDefaultFileName() string {
-	const layout = "2006-01-02"
-	t := time.Now()
-	return "k8s-deployment-" + t.Format(layout)
 }
