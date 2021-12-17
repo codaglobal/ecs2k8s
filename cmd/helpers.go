@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -30,4 +31,12 @@ func askForConfirmation() bool {
 		fmt.Println("Please type (y)es or (n)o and then press enter:")
 		return askForConfirmation()
 	}
+}
+
+func sanitizeValue(specialString string) string {
+	re, err := regexp.Compile(`[&\/\\#,+()$~%.'":*?<>{}@]`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return re.ReplaceAllString(specialString, "-")
 }

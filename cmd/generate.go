@@ -130,8 +130,15 @@ func generateDeploymentYAML(output ecs.DescribeTaskDefinitionOutput, fileName st
 
 func generateDeploymentJSON(output ecs.DescribeTaskDefinitionOutput, fileName string, rCount int) *appsv1.Deployment {
 	var kubeContainers []apiv1.Container
+	var kubeLabels map[string]string = make(map[string]string)
 	var replicas *int32 = new(int32)
 	*replicas = int32(rCount)
+
+	for _, object := range output.Tags {
+		key := sanitizeValue(*object.Key)
+		value := sanitizeValue(*object.Value)
+		kubeLabels[key] = value
+	}
 
 	for _, object := range output.TaskDefinition.ContainerDefinitions {
 		c := apiv1.Container{
@@ -148,15 +155,11 @@ func generateDeploymentJSON(output ecs.DescribeTaskDefinitionOutput, fileName st
 		Spec: appsv1.DeploymentSpec{
 			Replicas: replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app": "demo",
-				},
+				MatchLabels: kubeLabels,
 			},
 			Template: apiv1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"app": "demo",
-					},
+					Labels: kubeLabels,
 				},
 				Spec: apiv1.PodSpec{
 					Containers: kubeContainers,
