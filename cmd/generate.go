@@ -141,9 +141,22 @@ func generateDeploymentJSON(output ecs.DescribeTaskDefinitionOutput, fileName st
 	}
 
 	for _, object := range output.TaskDefinition.ContainerDefinitions {
+		var containerPorts []apiv1.ContainerPort
+
+		PortMappings := object.PortMappings
+		for _, object := range PortMappings {
+			cp := apiv1.ContainerPort{
+				HostPort:      *object.HostPort,
+				ContainerPort: *object.ContainerPort,
+				Protocol:      apiv1.ProtocolTCP,
+			}
+			containerPorts = append(containerPorts, cp)
+		}
+
 		c := apiv1.Container{
 			Name:  *object.Name,
 			Image: *object.Image,
+			Ports: containerPorts,
 		}
 		kubeContainers = append(kubeContainers, c)
 	}
