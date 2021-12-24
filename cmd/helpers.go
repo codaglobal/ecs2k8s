@@ -8,12 +8,14 @@ import (
 	"time"
 )
 
+// Utility function to return a default file name for deployment YAML
 func getDefaultFileName() string {
 	const layout = "2006-01-02"
 	t := time.Now()
 	return "k8s-deployment-" + t.Format(layout)
 }
 
+// Utility function to prompt user to confirm
 func askForConfirmation() bool {
 	var response string
 
@@ -33,6 +35,7 @@ func askForConfirmation() bool {
 	}
 }
 
+// Utility function to sanitize a string for K8s
 func sanitizeValue(specialString string) string {
 	re, err := regexp.Compile(`[&\/\\#,+()$~%.'":*?<>{}@]`)
 	if err != nil {

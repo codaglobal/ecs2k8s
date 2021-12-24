@@ -78,6 +78,7 @@ func init() {
 	generateCmd.PersistentFlags().Int("rcount", 1, "Number of replicas")
 }
 
+// Fetch Task definition from ECS
 func getTaskDefiniton(taskDefinition string, fileName string) ecs.DescribeTaskDefinitionOutput {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	fmt.Println("Fetching", taskDefinition, "from ECS...")
@@ -99,6 +100,7 @@ func getTaskDefiniton(taskDefinition string, fileName string) ecs.DescribeTaskDe
 	return *output
 }
 
+// Generate K8s deployment YAML file
 func generateDeploymentYAML(output ecs.DescribeTaskDefinitionOutput, fileName string) {
 	var kubeContainers []kubeContainer
 
@@ -128,6 +130,7 @@ func generateDeploymentYAML(output ecs.DescribeTaskDefinitionOutput, fileName st
 	_ = ioutil.WriteFile(fileName, file, 0644)
 }
 
+// Generate K8s deployment JSON file
 func generateDeploymentJSON(output ecs.DescribeTaskDefinitionOutput, fileName string, rCount int) *appsv1.Deployment {
 	var kubeContainers []apiv1.Container
 	var kubeLabels map[string]string = make(map[string]string)

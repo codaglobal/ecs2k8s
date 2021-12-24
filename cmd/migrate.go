@@ -69,6 +69,7 @@ func init() {
 	migrateCmd.PersistentFlags().Int("rcount", 1, "Number of replicas")
 }
 
+// Creates a K8s deployment in the local K8s cluster
 func createKubeDeployment(deployment *appsv1.Deployment) {
 	var kubeconfig string
 
