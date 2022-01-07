@@ -43,12 +43,14 @@ func init() {
 
 }
 
+// Prints list of task definitons
 func printList(output *ecs.ListTaskDefinitionFamiliesOutput) {
 	for _, object := range output.Families {
 		fmt.Println(object)
 	}
 }
 
+// Gets active task definiton families from ECS
 func getTaskDefinitonFamilies() (resp *ecs.ListTaskDefinitionFamiliesOutput) {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
