@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -74,7 +75,21 @@ func createKubeDeployment(deployment *appsv1.Deployment) {
 	var kubeconfig string
 
 	home := homedir.HomeDir()
-	kubeconfig = filepath.Join(home, ".kube", "config")
+	localKubeconfig := filepath.Join(home, ".kube", "config")
+	kubeConfigenv := os.Getenv("kubeconfig")
+
+	if kubeConfigenv != "" {
+		_, err := exists(kubeConfigenv)
+		if err != nil {
+			fmt.Println("Directory provided in kubeconfig does not exist.")
+			os.Exit(1)
+		}
+		kubeconfig = kubeConfigenv
+	} else {
+		kubeconfig = localKubeconfig
+	}
+
+	fmt.Println("Using kubeconfig provided in", kubeconfig)
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {

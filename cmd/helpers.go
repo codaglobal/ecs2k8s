@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -42,4 +43,15 @@ func sanitizeValue(specialString string) string {
 		log.Fatal(err)
 	}
 	return re.ReplaceAllString(specialString, "-")
+}
+
+func exists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, err
+	}
+	return false, err
 }
