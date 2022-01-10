@@ -48,8 +48,8 @@ var generateCmd = &cobra.Command{
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		taskDefintion, _ := cmd.Flags().GetString("task")
-		fileName, _ := cmd.Flags().GetString("fname")
-		rCount, _ := cmd.Flags().GetInt("rcount")
+		fileName, _ := cmd.Flags().GetString("file-name")
+		rCount, _ := cmd.Flags().GetInt("replicas")
 
 		if fileName == "" {
 			fileName = getDefaultFileName()
@@ -74,8 +74,8 @@ var generateCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(generateCmd)
 	generateCmd.PersistentFlags().String("task", "", "A valid task definition in ECS")
-	generateCmd.PersistentFlags().String("fname", "", "File to write the YAML file into")
-	generateCmd.PersistentFlags().Int("rcount", 1, "Number of replicas")
+	generateCmd.PersistentFlags().String("file-name", "", "File to write the YAML file into")
+	generateCmd.PersistentFlags().Int("replicas", 1, "Number of replicas")
 }
 
 // Fetch Task definition from ECS
