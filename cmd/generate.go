@@ -137,12 +137,14 @@ func generateDeploymentJSON(output ecs.DescribeTaskDefinitionOutput, fileName st
 	var replicas *int32 = new(int32)
 	*replicas = int32(rCount)
 
+	// Imports tags to labels
 	for _, object := range output.Tags {
 		key := sanitizeValue(*object.Key)
 		value := sanitizeValue(*object.Value)
 		kubeLabels[key] = value
 	}
 
+	// Imports container definition – Name, Image, Port mapping
 	for _, object := range output.TaskDefinition.ContainerDefinitions {
 		var containerPorts []apiv1.ContainerPort
 
@@ -157,13 +159,15 @@ func generateDeploymentJSON(output ecs.DescribeTaskDefinitionOutput, fileName st
 		}
 
 		c := apiv1.Container{
-			Name:  *object.Name,
-			Image: *object.Image,
-			Ports: containerPorts,
+			Name:    *object.Name,
+			Image:   *object.Image,
+			Ports:   containerPorts,
+			Command: object.Command,
 		}
 		kubeContainers = append(kubeContainers, c)
 	}
 
+	//Create deployment object
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: *output.TaskDefinition.Family,
