@@ -36,16 +36,7 @@ import (
 var generateCmd = &cobra.Command{
 	Use:   "generate",
 	Short: "Generate the YAML or Helm charts for the tasks",
-	Long: `Generate the YAML or Helm charts for the tasks. For example:
-
-	ecs2k8s generate --task <task name>
-
-	Flags:
-		--options [ YAML | HELM ]
-		--task < Name of the task definition >
-		--container-name < Name of the container inside the task, if more than one container is specified in that task > (optional field)
-		--install < Generate the local copy and also install the same into the k8s cluster > (optional field)  
-`,
+	Long:  `Generate the YAML or Helm charts for the tasks. For example:`,
 	Run: func(cmd *cobra.Command, args []string) {
 		taskDefintion, _ := cmd.Flags().GetString("task")
 		fileName, _ := cmd.Flags().GetString("file-name")
@@ -74,7 +65,7 @@ var generateCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(generateCmd)
 	generateCmd.PersistentFlags().String("task", "", "A valid task definition in ECS")
-	generateCmd.PersistentFlags().String("file-name", "", "File to write the YAML file into")
+	generateCmd.PersistentFlags().StringP("file-name", "f", "", "File to write the deployment file into")
 	generateCmd.PersistentFlags().Int("replicas", 1, "Number of replicas")
 }
 

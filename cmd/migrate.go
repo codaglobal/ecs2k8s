@@ -35,15 +35,7 @@ import (
 var migrateCmd = &cobra.Command{
 	Use:   "migrate",
 	Short: "Migrate ECS cluster to the k8s cluster.",
-	Long: `Migrate ECS cluster to the k8s cluster. For example:
-
-	ecs2k8s migrate <flags>
-	
-	Flags
-		--task < Name of the task definition >
-		--container-name < Name of the container inside the task, if more than one container is specified in that task > (optional field)
-		
-`,
+	Long: `Migrate ECS cluster to the k8s cluster. For example:	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		taskDefintion, _ := cmd.Flags().GetString("task")
 		fileName, _ := cmd.Flags().GetString("fname")
@@ -67,7 +59,7 @@ func init() {
 	rootCmd.AddCommand(migrateCmd)
 	migrateCmd.Flags().String("task", "", "A valid task definition in ECS")
 	migrateCmd.Flags().String("container-name", "", "Name of the container inside the task, if more than one container is specified in that task")
-	migrateCmd.PersistentFlags().Int("rcount", 1, "Number of replicas")
+	migrateCmd.PersistentFlags().Int("replicas", 1, "Number of replicas")
 }
 
 // Creates a K8s deployment in the local K8s cluster
