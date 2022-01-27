@@ -26,7 +26,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
+
+	// "gopkg.in/yaml.v2"
+	gyaml "github.com/ghodss/yaml"
 	appsv1 "k8s.io/api/apps/v1"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,7 +42,8 @@ var generateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		taskDefintion, _ := cmd.Flags().GetString("task")
 		fileName, _ := cmd.Flags().GetString("file-name")
-		rCount, _ := cmd.Flags().GetInt("replicas")
+		rCount, _ := cmd.Flags().GetInt32("replicas")
+		yaml, _ := cmd.Flags().GetBool("yaml")
 
 		if fileName == "" {
 			fileName = getDefaultFileName()
@@ -51,13 +54,9 @@ var generateCmd = &cobra.Command{
 			return
 		}
 
-		td := getTaskDefiniton(taskDefintion, fileName)
-		d := generateDeploymentJSON(td, fileName, rCount)
-		bytes, _ := json.MarshalIndent(d, "", "  ")
-		fileName = fileName + ".json"
-
-		fmt.Println("Writing K8s Deployment file to : ", fileName)
-		_ = ioutil.WriteFile(fileName, bytes, 0644)
+		td := getTaskDefiniton(taskDefintion)
+		d := generateDeploymentObject(td, rCount)
+		generateDeploymentFile(d, fileName, yaml)
 
 	},
 }
@@ -66,11 +65,12 @@ func init() {
 	rootCmd.AddCommand(generateCmd)
 	generateCmd.PersistentFlags().String("task", "", "A valid task definition in ECS")
 	generateCmd.PersistentFlags().StringP("file-name", "f", "", "File to write the deployment file into")
-	generateCmd.PersistentFlags().Int("replicas", 1, "Number of replicas")
+	generateCmd.PersistentFlags().Int32("replicas", 1, "Number of replicas")
+	generateCmd.Flags().Bool("yaml", false, "Set this flag if YAML needs to be generated")
 }
 
 // Fetch Task definition from ECS
-func getTaskDefiniton(taskDefinition string, fileName string) ecs.DescribeTaskDefinitionOutput {
+func getTaskDefiniton(taskDefinition string) ecs.DescribeTaskDefinitionOutput {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	fmt.Println("Fetching", taskDefinition, "from ECS...")
 	if err != nil {
@@ -91,42 +91,10 @@ func getTaskDefiniton(taskDefinition string, fileName string) ecs.DescribeTaskDe
 	return *output
 }
 
-// Generate K8s deployment YAML file
-func generateDeploymentYAML(output ecs.DescribeTaskDefinitionOutput, fileName string) {
-	var kubeContainers []kubeContainer
-
-	for _, object := range output.TaskDefinition.ContainerDefinitions {
-		c := kubeContainer{
-			Name:  *object.Name,
-			Image: *object.Image,
-		}
-		kubeContainers = append(kubeContainers, c)
-	}
-
-	data := kubeObject{
-		ApiVersion: "apps/v1",
-		Kind:       "Deployment",
-		MetaData: kubeMetadata{
-			Name: *output.TaskDefinition.Family,
-		},
-	}
-
-	data.Spec.Template.Spec.Containers = kubeContainers
-
-	file, _ := yaml.Marshal(data)
-
-	fileName = fileName + ".yaml"
-
-	fmt.Println("Writing K8s Deployment file to : ", fileName)
-	_ = ioutil.WriteFile(fileName, file, 0644)
-}
-
-// Generate K8s deployment JSON file
-func generateDeploymentJSON(output ecs.DescribeTaskDefinitionOutput, fileName string, rCount int) *appsv1.Deployment {
+// Generate K8s deployment object
+func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount int32) *appsv1.Deployment {
 	var kubeContainers []apiv1.Container
 	var kubeLabels map[string]string = make(map[string]string)
-	var replicas *int32 = new(int32)
-	*replicas = int32(rCount)
 
 	// Imports tags to labels
 	for _, object := range output.Tags {
@@ -160,11 +128,12 @@ func generateDeploymentJSON(output ecs.DescribeTaskDefinitionOutput, fileName st
 
 	//Create deployment object
 	deployment := &appsv1.Deployment{
+		TypeMeta: metav1.TypeMeta{APIVersion: appsv1.SchemeGroupVersion.String(), Kind: "Deployment"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: *output.TaskDefinition.Family,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: replicas,
+			// Replicas: replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: kubeLabels,
 			},
@@ -178,6 +147,20 @@ func generateDeploymentJSON(output ecs.DescribeTaskDefinitionOutput, fileName st
 			},
 		},
 	}
-
 	return deployment
+}
+
+func generateDeploymentFile(d *appsv1.Deployment, fileName string, yaml bool) {
+	bytes, _ := json.MarshalIndent(d, "", "  ")
+	if yaml {
+		y, _ := gyaml.JSONToYAML(bytes)
+		fileName = fileName + ".yaml"
+		fmt.Println("Writing K8s Deployment YAML file to : ", fileName)
+		_ = ioutil.WriteFile(fileName, y, 0644)
+	} else {
+		fileName = fileName + ".json"
+		fmt.Println("Writing K8s Deployment JSON file to : ", fileName)
+		_ = ioutil.WriteFile(fileName, bytes, 0644)
+	}
+
 }

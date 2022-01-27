@@ -39,7 +39,7 @@ var migrateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		taskDefintion, _ := cmd.Flags().GetString("task")
 		fileName, _ := cmd.Flags().GetString("fname")
-		rCount, _ := cmd.Flags().GetInt("rcount")
+		rCount, _ := cmd.Flags().GetInt32("rcount")
 
 		if fileName == "" {
 			fileName = getDefaultFileName()
@@ -49,8 +49,8 @@ var migrateCmd = &cobra.Command{
 			fmt.Println("Task definition required")
 		}
 
-		td := getTaskDefiniton(taskDefintion, fileName)
-		d := generateDeploymentJSON(td, fileName, rCount)
+		td := getTaskDefiniton(taskDefintion)
+		d := generateDeploymentObject(td, rCount)
 		createKubeDeployment(d)
 	},
 }
@@ -59,7 +59,7 @@ func init() {
 	rootCmd.AddCommand(migrateCmd)
 	migrateCmd.Flags().String("task", "", "A valid task definition in ECS")
 	migrateCmd.Flags().String("container-name", "", "Name of the container inside the task, if more than one container is specified in that task")
-	migrateCmd.PersistentFlags().Int("replicas", 1, "Number of replicas")
+	migrateCmd.PersistentFlags().Int32("replicas", 1, "Number of replicas")
 }
 
 // Creates a K8s deployment in the local K8s cluster
@@ -100,7 +100,6 @@ func createKubeDeployment(deployment *appsv1.Deployment) {
 		return
 	}
 	deploymentsClient := clientset.AppsV1().Deployments(apiv1.NamespaceDefault)
-	fmt.Println("Creating deployment...")
 
 	result, err := deploymentsClient.Create(context.TODO(), deployment, metav1.CreateOptions{})
 
@@ -108,6 +107,7 @@ func createKubeDeployment(deployment *appsv1.Deployment) {
 		log.Println("Deployment failed", err)
 		panic(err)
 	}
-	fmt.Printf("Created deployment %q.\n", result.GetObjectMeta().GetName())
+
+	fmt.Printf("Submitted new deployment %q.\n", result.GetObjectMeta().GetName())
 
 }
