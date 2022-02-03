@@ -31,6 +31,7 @@ import (
 	gyaml "github.com/ghodss/yaml"
 	appsv1 "k8s.io/api/apps/v1"
 	apiv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -123,6 +124,13 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 			Ports:   containerPorts,
 			Command: object.Command,
 		}
+
+		c.Resources = apiv1.ResourceRequirements{
+			Requests: apiv1.ResourceList{
+				"cpu":    resource.MustParse(fmt.Sprintf("%d%s", object.Cpu, "Mi")),
+				"memory": resource.MustParse(fmt.Sprintf("%d%s", *object.Memory, "m")),
+			},
+		}
 		kubeContainers = append(kubeContainers, c)
 	}
 
@@ -133,7 +141,7 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 			Name: *output.TaskDefinition.Family,
 		},
 		Spec: appsv1.DeploymentSpec{
-			// Replicas: replicas,
+			Replicas: &rCount,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: kubeLabels,
 			},

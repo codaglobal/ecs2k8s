@@ -39,7 +39,7 @@ var migrateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		taskDefintion, _ := cmd.Flags().GetString("task")
 		fileName, _ := cmd.Flags().GetString("fname")
-		rCount, _ := cmd.Flags().GetInt32("rcount")
+		rCount, _ := cmd.Flags().GetInt32("replicas")
 
 		if fileName == "" {
 			fileName = getDefaultFileName()
