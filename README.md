@@ -7,6 +7,22 @@
 
 ## Usage
 
+The usage instructions can be viewed by entering ```ecs2k8s --help```
+
+```
+
+    ecs2k8s - A CLI tool that will be able to migrate a running cluster from ECS to a Kubernetes cluster
+
+    Usage:
+    ecs2k8s [command]
+
+    Available Commands:
+    ecs         A set of commands to work with the existing AWS ECS cluster.
+    generate    Generate the K8s definition YAML or JSON file for the tasks
+    migrate     Migrate ECS cluster to the k8s cluster.
+    help        Help about any command
+
+```
 
 ### Available commands
 
@@ -16,10 +32,10 @@
     $ ecs2k8s ecs list-tasks
 ```
 
-- Generate K8s definition YAML file
+- Generate K8s definition YAML|JSON file
 
 ```bash
-    $ ecs2k8s ecs generate --task <Active-Task-Definition-Name>
+    $ ecs2k8s generate --task <Active-Task-Definition-Name>
 ```
 
 - Create a Kubernetes deployment in a cluster, reads by default from local kube config file
