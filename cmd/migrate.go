@@ -56,7 +56,7 @@ var migrateCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(migrateCmd)
+	ecsCmd.AddCommand(migrateCmd)
 	migrateCmd.Flags().String("task", "", "A valid task definition in ECS")
 	migrateCmd.Flags().String("container-name", "", "Name of the container inside the task, if more than one container is specified in that task")
 	migrateCmd.PersistentFlags().Int32("replicas", 1, "Number of replicas")
