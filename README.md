@@ -35,13 +35,13 @@ The usage instructions can be viewed by entering ```ecs2k8s --help```
 - Generate K8s definition YAML|JSON file
 
 ```bash
-    $ ecs2k8s generate --task <Active-Task-Definition-Name>
+    $ ecs2k8s ecs generate --task <Active-Task-Definition-Name>
 ```
 
 - Create a Kubernetes deployment in a cluster, reads by default from local kube config file
 
 ```bash
-    $ ecs2k8s migrate --task <Active-Task-Definition-Name>
+    $ ecs2k8s ecs migrate --task <Active-Task-Definition-Name>
 ```
 
 ## Requirements
