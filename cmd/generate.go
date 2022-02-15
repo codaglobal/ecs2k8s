@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
@@ -37,14 +38,15 @@ import (
 
 // generateCmd represents the generate command
 var generateCmd = &cobra.Command{
-	Use:   "generate",
+	Use:   "generate-k8s-spec",
 	Short: "Generate the YAML or Helm charts for the tasks",
 	Long:  `Generate the YAML or Helm charts for the tasks. For example:`,
 	Run: func(cmd *cobra.Command, args []string) {
-		taskDefintion, _ := cmd.Flags().GetString("task")
+		taskDefintion, _ := cmd.Flags().GetString("task-id")
 		fileName, _ := cmd.Flags().GetString("file-name")
 		rCount, _ := cmd.Flags().GetInt32("replicas")
 		yaml, _ := cmd.Flags().GetBool("yaml")
+		namespace, _ := cmd.Flags().GetString("namespace")
 
 		if fileName == "" {
 			fileName = getDefaultFileName()
@@ -52,22 +54,23 @@ var generateCmd = &cobra.Command{
 
 		if taskDefintion == "" {
 			fmt.Println("Task definition required")
-			return
+			os.Exit(1)
+		}
+
+		if namespace == "" {
+			fmt.Println("Namespace required")
+			os.Exit(1)
 		}
 
 		td := getTaskDefiniton(taskDefintion)
-		d := generateDeploymentObject(td, rCount)
+		d := generateDeploymentObject(td, rCount, namespace)
 		generateDeploymentFile(d, fileName, yaml)
 
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(generateCmd)
-	generateCmd.PersistentFlags().String("task", "", "A valid task definition in ECS")
-	generateCmd.PersistentFlags().StringP("file-name", "f", "", "File to write the deployment file into")
-	generateCmd.PersistentFlags().Int32("replicas", 1, "Number of replicas")
-	generateCmd.Flags().Bool("yaml", false, "Set this flag if YAML needs to be generated")
+	ecsCmd.AddCommand(generateCmd)
 }
 
 // Fetch Task definition from ECS
@@ -93,7 +96,7 @@ func getTaskDefiniton(taskDefinition string) ecs.DescribeTaskDefinitionOutput {
 }
 
 // Generate K8s deployment object
-func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount int32) *appsv1.Deployment {
+func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount int32, namespace string) *appsv1.Deployment {
 	var kubeContainers []apiv1.Container
 	var kubeLabels map[string]string = make(map[string]string)
 
@@ -138,7 +141,8 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{APIVersion: appsv1.SchemeGroupVersion.String(), Kind: "Deployment"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: *output.TaskDefinition.Family,
+			Name:      *output.TaskDefinition.Family,
+			Namespace: namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &rCount,

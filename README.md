@@ -18,8 +18,6 @@ The usage instructions can be viewed by entering ```ecs2k8s --help```
 
     Available Commands:
     ecs         A set of commands to work with the existing AWS ECS cluster.
-    generate    Generate the K8s definition YAML or JSON file for the tasks
-    migrate     Migrate ECS cluster to the k8s cluster.
     help        Help about any command
 
 ```
@@ -35,13 +33,13 @@ The usage instructions can be viewed by entering ```ecs2k8s --help```
 - Generate K8s definition YAML|JSON file
 
 ```bash
-    $ ecs2k8s ecs generate --task <Active-Task-Definition-Name>
+    $ eecs2k8s ecs generate-k8s-spec --task-id xxxx        
 ```
 
 - Create a Kubernetes deployment in a cluster, reads by default from local kube config file
 
 ```bash
-    $ ecs2k8s ecs migrate --task <Active-Task-Definition-Name>
+    $ ecs2k8s ecs migrate-task --task-id xxxxx --namespace xxxx    
 ```
 
 ## Requirements

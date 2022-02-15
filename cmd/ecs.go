@@ -34,4 +34,9 @@ var ecsCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(ecsCmd)
+	ecsCmd.PersistentFlags().String("task-id", "", "A valid task definition in ECS")
+	ecsCmd.PersistentFlags().String("container-name", "", "Name of the container inside the task, if more than one container is specified in that task")
+	ecsCmd.PersistentFlags().StringP("namespace", "n", "", "The Kubernetes namespace in which the deployment needs to be created")
+	ecsCmd.PersistentFlags().String("file-name", "", "The file into which K8s spec will be written to, defaults to datetime of spec generation")
+	ecsCmd.PersistentFlags().Int32("replicas", 1, "The replica count for the K8s deployment")
 }
