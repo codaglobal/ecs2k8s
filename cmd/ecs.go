@@ -16,7 +16,7 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -24,15 +24,19 @@ import (
 // ecsCmd represents the root ecs command
 var ecsCmd = &cobra.Command{
 	Use:   "ecs",
-	Short: "A set of commands to work with the existing AWS ECS cluster.",
-	Long: `A set of commands to work with the existing AWS ECS cluster. For example:
-
-ecs2k8s ecs list-task`,
+	Short: "A set of commands to work with an existing AWS ECS cluster.",
+	Long:  `A set of commands to work with an existing AWS ECS cluster. These subcommands can list, generate and migrate a task definition to a K8s cluster`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("ecs called")
+		cmd.Help()
+		os.Exit(0)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(ecsCmd)
+	ecsCmd.PersistentFlags().String("task-id", "", "A valid task definition in ECS")
+	ecsCmd.PersistentFlags().String("container-name", "", "Name of the container inside the task, if more than one container is specified in that task")
+	ecsCmd.PersistentFlags().StringP("namespace", "n", "", "The Kubernetes namespace in which the deployment needs to be created")
+	ecsCmd.PersistentFlags().String("file-name", "", "The file into which K8s spec will be written to, defaults to datetime of spec generation")
+	ecsCmd.PersistentFlags().Int32("replicas", 1, "The replica count for the K8s deployment")
 }

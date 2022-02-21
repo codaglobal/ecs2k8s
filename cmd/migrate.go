@@ -24,7 +24,6 @@ import (
 
 	"github.com/spf13/cobra"
 	appsv1 "k8s.io/api/apps/v1"
-	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -33,13 +32,14 @@ import (
 
 // migrateCmd represents the migrate command
 var migrateCmd = &cobra.Command{
-	Use:   "migrate",
+	Use:   "migrate-task",
 	Short: "Migrate ECS cluster to the k8s cluster.",
 	Long: `Migrate ECS cluster to the k8s cluster. For example:	`,
 	Run: func(cmd *cobra.Command, args []string) {
-		taskDefintion, _ := cmd.Flags().GetString("task")
+		taskDefintion, _ := cmd.Flags().GetString("task-id")
 		fileName, _ := cmd.Flags().GetString("fname")
 		rCount, _ := cmd.Flags().GetInt32("replicas")
+		namespace, _ := cmd.Flags().GetString("namespace")
 
 		if fileName == "" {
 			fileName = getDefaultFileName()
@@ -47,19 +47,22 @@ var migrateCmd = &cobra.Command{
 
 		if taskDefintion == "" {
 			fmt.Println("Task definition required")
+			os.Exit(1)
+		}
+
+		if namespace == "" {
+			fmt.Println("Namespace required")
+			os.Exit(1)
 		}
 
 		td := getTaskDefiniton(taskDefintion)
-		d := generateDeploymentObject(td, rCount)
+		d := generateDeploymentObject(td, rCount, namespace)
 		createKubeDeployment(d)
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(migrateCmd)
-	migrateCmd.Flags().String("task", "", "A valid task definition in ECS")
-	migrateCmd.Flags().String("container-name", "", "Name of the container inside the task, if more than one container is specified in that task")
-	migrateCmd.PersistentFlags().Int32("replicas", 1, "Number of replicas")
+	ecsCmd.AddCommand(migrateCmd)
 }
 
 // Creates a K8s deployment in the local K8s cluster
@@ -99,7 +102,7 @@ func createKubeDeployment(deployment *appsv1.Deployment) {
 		fmt.Println("Operation cancelled by user")
 		return
 	}
-	deploymentsClient := clientset.AppsV1().Deployments(apiv1.NamespaceDefault)
+	deploymentsClient := clientset.AppsV1().Deployments(deployment.ObjectMeta.Namespace)
 
 	result, err := deploymentsClient.Create(context.TODO(), deployment, metav1.CreateOptions{})
 
