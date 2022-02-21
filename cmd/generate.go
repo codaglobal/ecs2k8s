@@ -130,7 +130,7 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 
 		c.Resources = apiv1.ResourceRequirements{
 			Limits: apiv1.ResourceList{
-				"cpu":    resource.MustParse(fmt.Sprintf("%d%s", object.Cpu, "M")),
+				"cpu":    resource.MustParse(fmt.Sprintf("%d", object.Cpu)),
 				"memory": resource.MustParse(fmt.Sprintf("%d%s", *object.Memory, "Mi")),
 			},
 		}
