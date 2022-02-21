@@ -36,7 +36,7 @@ var migrateCmd = &cobra.Command{
 	Short: "Migrate ECS cluster to the k8s cluster.",
 	Long: `Migrate ECS cluster to the k8s cluster. For example:	`,
 	Run: func(cmd *cobra.Command, args []string) {
-		taskDefintion, _ := cmd.Flags().GetString("task-id")
+		taskDefintion, _ := cmd.Flags().GetString("task-definition")
 		fileName, _ := cmd.Flags().GetString("fname")
 		rCount, _ := cmd.Flags().GetInt32("replicas")
 		namespace, _ := cmd.Flags().GetString("namespace")

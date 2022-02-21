@@ -42,7 +42,7 @@ var generateCmd = &cobra.Command{
 	Short: "Generate the YAML or Helm charts for the tasks",
 	Long:  `Generate the YAML or Helm charts for the tasks. For example:`,
 	Run: func(cmd *cobra.Command, args []string) {
-		taskDefintion, _ := cmd.Flags().GetString("task-id")
+		taskDefintion, _ := cmd.Flags().GetString("task-definition")
 		fileName, _ := cmd.Flags().GetString("file-name")
 		rCount, _ := cmd.Flags().GetInt32("replicas")
 		yaml, _ := cmd.Flags().GetBool("yaml")
@@ -129,9 +129,9 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 		}
 
 		c.Resources = apiv1.ResourceRequirements{
-			Requests: apiv1.ResourceList{
+			Limits: apiv1.ResourceList{
 				"cpu":    resource.MustParse(fmt.Sprintf("%d%s", object.Cpu, "M")),
-				"memory": resource.MustParse(fmt.Sprintf("%d%s", *object.Memory, "m")),
+				"memory": resource.MustParse(fmt.Sprintf("%d%s", *object.Memory, "Mi")),
 			},
 		}
 		kubeContainers = append(kubeContainers, c)
@@ -174,5 +174,4 @@ func generateDeploymentFile(d *appsv1.Deployment, fileName string, yaml bool) {
 		fmt.Println("Writing K8s Deployment JSON file to : ", fileName)
 		_ = ioutil.WriteFile(fileName, bytes, 0644)
 	}
-
 }
