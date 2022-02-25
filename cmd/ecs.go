@@ -39,5 +39,6 @@ func init() {
 	ecsCmd.PersistentFlags().StringP("namespace", "n", "", "The Kubernetes namespace in which the deployment needs to be created")
 	ecsCmd.PersistentFlags().String("file-name", "", "The file into which K8s spec will be written to, defaults to datetime of spec generation")
 	ecsCmd.PersistentFlags().Bool("yaml", false, "Set this flag if spec file needs to generated in YAML, defaults to JSON")
+	ecsCmd.PersistentFlags().String("kubeconfig", "", "Config file for the K8s cluster, if parameter is not passed, checks $HOME/.kube directory and then KUBECONFIG environment variable")
 	ecsCmd.PersistentFlags().Int32("replicas", 1, "The replica count for the K8s deployment")
 }

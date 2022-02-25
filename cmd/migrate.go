@@ -37,13 +37,9 @@ var migrateCmd = &cobra.Command{
 	Long: `Migrate ECS cluster to the k8s cluster. For example:	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		taskDefintion, _ := cmd.Flags().GetString("task-definition")
-		fileName, _ := cmd.Flags().GetString("fname")
 		rCount, _ := cmd.Flags().GetInt32("replicas")
 		namespace, _ := cmd.Flags().GetString("namespace")
-
-		if fileName == "" {
-			fileName = getDefaultFileName()
-		}
+		kubeConfigFile, _ := cmd.Flags().GetString("kubeconfig")
 
 		if taskDefintion == "" {
 			fmt.Println("Task definition required")
@@ -57,7 +53,7 @@ var migrateCmd = &cobra.Command{
 
 		td := getTaskDefiniton(taskDefintion)
 		d := generateDeploymentObject(td, rCount, namespace)
-		createKubeDeployment(d)
+		createKubeDeployment(d, kubeConfigFile)
 	},
 }
 
@@ -66,22 +62,28 @@ func init() {
 }
 
 // Creates a K8s deployment in the local K8s cluster
-func createKubeDeployment(deployment *appsv1.Deployment) {
+func createKubeDeployment(deployment *appsv1.Deployment, kubeConfigParamter string) {
 	var kubeconfig string
-
 	home := homedir.HomeDir()
 	localKubeconfig := filepath.Join(home, ".kube", "config")
-	kubeConfigenv := os.Getenv("kubeconfig")
+	kubeConfigenv := os.Getenv("KUBECONFIG")
 
-	if kubeConfigenv != "" {
-		_, err := exists(kubeConfigenv)
-		if err != nil {
-			fmt.Println("Directory provided in kubeconfig does not exist.")
+	// Checks for config file in parameter passed, then in $HOME/.kube directory and then KUBECONFIG environment variable
+	if kubeConfigParamter != "" {
+		if _, err := os.Stat(kubeConfigParamter); err != nil {
+			fmt.Println("No valid kubeconfig found in the specified location,", kubeConfigParamter)
 			os.Exit(1)
 		}
-		kubeconfig = kubeConfigenv
-	} else {
+		kubeconfig = kubeConfigParamter
+	} else if _, err := os.Stat(localKubeconfig); err == nil {
 		kubeconfig = localKubeconfig
+	} else {
+		if _, err := os.Stat(kubeConfigenv); err == nil {
+			kubeconfig = kubeConfigenv
+		} else {
+			fmt.Println("Unable to detect kubeconfig in default location.")
+			os.Exit(1)
+		}
 	}
 
 	fmt.Println("Using kubeconfig provided in", kubeconfig)
