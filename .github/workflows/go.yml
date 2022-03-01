@@ -14,10 +14,7 @@ on:
 jobs:
 
   build:
-    runs-on: ubuntu-latest
-    env:
-      GOOS=darwin
-      GOARCH=amd64
+    runs-on: ubuntu-latest    
     steps:
     - uses: actions/checkout@v2
 
@@ -28,8 +25,11 @@ jobs:
 
     - run: mkdir -p $RUNNER_TEMP/artifacts/
 
-    - name: Build
-      run: go build -o $RUNNER_TEMP/artifacts/${{ env.artifact_name }}
+    - name: Build macos
+      run: |
+      export GOOS=darwin
+      export GOARCH=amd64
+      go build -o $RUNNER_TEMP/artifacts/${{ env.artifact_name }}
 
     - name: Upload artifact
       uses:  actions/upload-artifact@v2
