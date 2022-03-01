@@ -1,0 +1,25 @@
+name: Release
+
+on:
+  push:
+    branches: [ 'releases/**' ]  
+
+jobs:
+  build-app:
+    uses: ./.github/workflows/go.yml
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build-app
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Get artifact
+      uses: actions/download-artifact@v2
+      with:
+        name: ${{ needs.build-app.outputs.artifact_name }} 
+
+    - name: Create a release
+      run: hub release create -a ${{ needs.build-app.outputs.artifact_name }} -m $GITHUB_REF_NAME $GITHUB_RUN_ID 
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
