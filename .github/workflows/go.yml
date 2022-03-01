@@ -27,9 +27,9 @@ jobs:
 
     - name: Build macos
       run: |
-      export GOOS=darwin
-      export GOARCH=amd64
-      go build -o $RUNNER_TEMP/artifacts/${{ env.artifact_name }}
+        export GOOS=darwin
+        export GOARCH=amd64
+        go build -o $RUNNER_TEMP/artifacts/${{ env.artifact_name }}
 
     - name: Upload artifact
       uses:  actions/upload-artifact@v2
