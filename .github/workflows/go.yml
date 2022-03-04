@@ -29,19 +29,23 @@ jobs:
       run: |
         export GOOS=darwin
         export GOARCH=amd64
-        go build -o $RUNNER_TEMP/artifacts/${{ env.artifact_name }}-$GOOS-$GOARCH
+        go build -o $RUNNER_TEMP/artifacts/$GOOS-$GOARCH/${{ env.artifact_name }}
+        cd $RUNNER_TEMP/artifacts/
+        zip ${{ env.artifact_name }}-$GOOS-$GOARCH.zip $GOOS-$GOARCH/${{ env.artifact_name }}
     
     - name: Build linux
       run: |
         export GOOS=linux
         export GOARCH=amd64
-        go build -o $RUNNER_TEMP/artifacts/${{ env.artifact_name }}-$GOOS-$GOARCH
+        go build -o $RUNNER_TEMP/artifacts/$GOOS-$GOARCH/${{ env.artifact_name }}
+        cd $RUNNER_TEMP/artifacts/        
+        zip ${{ env.artifact_name }}-$GOOS-$GOARCH.zip $GOOS-$GOARCH/${{ env.artifact_name }}
 
     - name: Upload artifact
       uses:  actions/upload-artifact@v2
       with:
         name: ${{ env.artifact_name }}
-        path: ${{ runner.temp }}/artifacts/*
+        path: ${{ runner.temp }}/artifacts/*.zip
     
     outputs:
       artifact_name: ${{ env.artifact_name }}
