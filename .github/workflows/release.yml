@@ -38,6 +38,6 @@ jobs:
 
 
     - name: Create a release
-      run: gh release create $GITHUB_RUN_ID -t $GITHUB_REF_NAME ${{ runner.temp }}/artifacts/*
+      run: gh release create $GITHUB_RUN_ID -t $GITHUB_REF_NAME ${{ runner.temp }}/artifacts/*.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
