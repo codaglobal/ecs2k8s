@@ -1,27 +1,44 @@
 name: Release
 
+env:
+  artifact_name: ecs2k8s
+
 on:
   push:
     branches: [ 'releases/**' ]  
 
 jobs:
-  build-app:
-    uses: ./.github/workflows/go.yml
-
   release:
     runs-on: ubuntu-latest
     needs: build-app
     steps:
     - uses: actions/checkout@v2
-    - run: mkdir -p $RUNNER_TEMP/artifacts/
-    
-    - name: Get artifact
-      uses: actions/download-artifact@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
       with:
-        name: ${{ needs.build-app.outputs.artifact_name }} 
-        path: ${{ runner.temp }}/artifacts
+        go-version: 1.17
+
+    - run: mkdir -p $RUNNER_TEMP/artifacts/
+
+    - name: Build macos
+      run: |
+        export GOOS=darwin
+        export GOARCH=amd64
+        go build -o $RUNNER_TEMP/artifacts/$GOOS-$GOARCH/${{ env.artifact_name }}
+        cd $RUNNER_TEMP/artifacts/
+        zip ${{ env.artifact_name }}-$GOOS-$GOARCH.zip $GOOS-$GOARCH/${{ env.artifact_name }}
+    
+    - name: Build linux
+      run: |
+        export GOOS=linux
+        export GOARCH=amd64
+        go build -o $RUNNER_TEMP/artifacts/$GOOS-$GOARCH/${{ env.artifact_name }}
+        cd $RUNNER_TEMP/artifacts/        
+        zip ${{ env.artifact_name }}-$GOOS-$GOARCH.zip $GOOS-$GOARCH/${{ env.artifact_name }}
+
 
     - name: Create a release
-      run: gh release create $GITHUB_RUN_ID ${{ needs.create-build-artifact.outputs.artifact_name }} -t $GITHUB_REF_NAME ${{ runner.temp }}/artifacts/*
+      run: gh release create $GITHUB_RUN_ID ${{ env.artifact_name }} -t $GITHUB_REF_NAME ${{ runner.temp }}/artifacts/*
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
