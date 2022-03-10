@@ -10,7 +10,6 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-    needs: build-app
     steps:
     - uses: actions/checkout@v2
 
