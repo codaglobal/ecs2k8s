@@ -17,55 +17,66 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"time"
+	"os"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
+
+	// "gopkg.in/yaml.v2"
+	gyaml "github.com/ghodss/yaml"
+	appsv1 "k8s.io/api/apps/v1"
+	apiv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // generateCmd represents the generate command
 var generateCmd = &cobra.Command{
-	Use:   "generate",
+	Use:   "generate-k8s-spec",
 	Short: "Generate the YAML or Helm charts for the tasks",
-	Long: `Generate the YAML or Helm charts for the tasks. For example:
-
-	ecs2k8s generate --task <task name>
-
-	Flags:
-		--options [ YAML | HELM ]
-		--task < Name of the task definition >
-		--container-name < Name of the container inside the task, if more than one container is specified in that task > (optional field)
-		--install < Generate the local copy and also install the same into the k8s cluster > (optional field)  
-`,
+	Long:  `Generate the YAML or Helm charts for the tasks. For example:`,
 	Run: func(cmd *cobra.Command, args []string) {
-		taskDefintion, _ := cmd.Flags().GetString("task")
-		fileName, _ := cmd.Flags().GetString("fname")
+		taskDefintion, _ := cmd.Flags().GetString("task-definition")
+		fileName, _ := cmd.Flags().GetString("file-name")
+		rCount, _ := cmd.Flags().GetInt32("replicas")
+		yaml, _ := cmd.Flags().GetBool("yaml")
+		namespace, _ := cmd.Flags().GetString("namespace")
 
 		if fileName == "" {
 			fileName = getDefaultFileName()
 		}
 
-		if taskDefintion != "" {
-			td := getTaskDefiniton(taskDefintion, fileName)
-			generateDeploymentYAML(td, fileName)
-		} else {
+		if taskDefintion == "" {
 			fmt.Println("Task definition required")
+			os.Exit(1)
 		}
+
+		if namespace == "" {
+			fmt.Println("Namespace required")
+			os.Exit(1)
+		}
+
+		td := getTaskDefiniton(taskDefintion)
+		d := generateDeploymentObject(td, rCount, namespace)
+		generateDeploymentFile(d, fileName, yaml)
+
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(generateCmd)
-	generateCmd.PersistentFlags().String("task", "td", "A valid task definition in ECS")
+	ecsCmd.AddCommand(generateCmd)
 }
 
-func getTaskDefiniton(taskDefinition string, fileName string) ecs.DescribeTaskDefinitionOutput {
+// Fetch Task definition from ECS
+func getTaskDefiniton(taskDefinition string) ecs.DescribeTaskDefinitionOutput {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
+	fmt.Println("Fetching", taskDefinition, "from ECS...")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -74,6 +85,7 @@ func getTaskDefiniton(taskDefinition string, fileName string) ecs.DescribeTaskDe
 
 	output, err := client.DescribeTaskDefinition(context.TODO(), &ecs.DescribeTaskDefinitionInput{
 		TaskDefinition: &taskDefinition,
+		Include:        []types.TaskDefinitionField{"TAGS"},
 	})
 
 	if err != nil {
@@ -83,38 +95,83 @@ func getTaskDefiniton(taskDefinition string, fileName string) ecs.DescribeTaskDe
 	return *output
 }
 
-func generateDeploymentYAML(output ecs.DescribeTaskDefinitionOutput, fileName string) {
+// Generate K8s deployment object
+func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount int32, namespace string) *appsv1.Deployment {
+	var kubeContainers []apiv1.Container
+	var kubeLabels map[string]string = make(map[string]string)
 
-	var kubeContainers []kubeContainer
+	// Imports tags to labels
+	for _, object := range output.Tags {
+		key := sanitizeValue(*object.Key)
+		value := sanitizeValue(*object.Value)
+		kubeLabels[key] = value
+	}
 
+	// Imports container definition – Name, Image, Port mapping
 	for _, object := range output.TaskDefinition.ContainerDefinitions {
-		c := kubeContainer{
-			Name:  *object.Name,
-			Image: *object.Image,
+		var containerPorts []apiv1.ContainerPort
+
+		PortMappings := object.PortMappings
+		for _, object := range PortMappings {
+			cp := apiv1.ContainerPort{
+				HostPort:      *object.HostPort,
+				ContainerPort: *object.ContainerPort,
+				Protocol:      apiv1.ProtocolTCP,
+			}
+			containerPorts = append(containerPorts, cp)
+		}
+
+		c := apiv1.Container{
+			Name:    *object.Name,
+			Image:   *object.Image,
+			Ports:   containerPorts,
+			Command: object.Command,
+		}
+
+		c.Resources = apiv1.ResourceRequirements{
+			Limits: apiv1.ResourceList{
+				"cpu":    resource.MustParse(fmt.Sprintf("%d", object.Cpu)),
+				"memory": resource.MustParse(fmt.Sprintf("%d%s", *object.Memory, "Mi")),
+			},
 		}
 		kubeContainers = append(kubeContainers, c)
 	}
 
-	data := kubeObject{
-		ApiVersion: "apps/v1",
-		Kind:       "Deployment",
-		MetaData: kubeMetadata{
-			Name: *output.TaskDefinition.Family,
+	//Create deployment object
+	deployment := &appsv1.Deployment{
+		TypeMeta: metav1.TypeMeta{APIVersion: appsv1.SchemeGroupVersion.String(), Kind: "Deployment"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      *output.TaskDefinition.Family,
+			Namespace: namespace,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &rCount,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: kubeLabels,
+			},
+			Template: apiv1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: kubeLabels,
+				},
+				Spec: apiv1.PodSpec{
+					Containers: kubeContainers,
+				},
+			},
 		},
 	}
-
-	data.Spec.Template.Spec.Containers = kubeContainers
-
-	file, _ := yaml.Marshal(data)
-
-	fileName = fileName + ".yaml"
-
-	fmt.Println("Writing K8s Deployment file to : ", fileName)
-	_ = ioutil.WriteFile(fileName, file, 0644)
+	return deployment
 }
 
-func getDefaultFileName() string {
-	const layout = "2006-01-02"
-	t := time.Now()
-	return "k8s-deployment-" + t.Format(layout)
+func generateDeploymentFile(d *appsv1.Deployment, fileName string, yaml bool) {
+	bytes, _ := json.MarshalIndent(d, "", "  ")
+	if yaml {
+		y, _ := gyaml.JSONToYAML(bytes)
+		fileName = fileName + ".yaml"
+		fmt.Println("Writing K8s Deployment YAML file to : ", fileName)
+		_ = ioutil.WriteFile(fileName, y, 0644)
+	} else {
+		fileName = fileName + ".json"
+		fmt.Println("Writing K8s Deployment JSON file to : ", fileName)
+		_ = ioutil.WriteFile(fileName, bytes, 0644)
+	}
 }

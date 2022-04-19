@@ -29,9 +29,7 @@ import (
 var listTasksCmd = &cobra.Command{
 	Use:   "list-tasks",
 	Short: "Lists all the ECS tasks that are in active state",
-	Long: `Lists all the ECS tasks that are in active state. For example:
-
-ecs2k8s ecs list-tasks <flags>`,
+	Long:  `Lists all the ECS tasks that are in active state`,
 	Run: func(cmd *cobra.Command, args []string) {
 		outFamilies := getTaskDefinitonFamilies()
 		printList(outFamilies)
@@ -43,12 +41,14 @@ func init() {
 
 }
 
+// Prints list of task definitons
 func printList(output *ecs.ListTaskDefinitionFamiliesOutput) {
 	for _, object := range output.Families {
 		fmt.Println(object)
 	}
 }
 
+// Gets active task definiton families from ECS
 func getTaskDefinitonFamilies() (resp *ecs.ListTaskDefinitionFamiliesOutput) {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
