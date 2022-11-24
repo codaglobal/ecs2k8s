@@ -16,7 +16,8 @@ limitations under the License.
 package main
 
 import (
-	cmd "codaglobal/ecs2k8s/modules/root"
+	_ "codaglobal/ecs2k8s/cmd/ecs"
+	cmd "codaglobal/ecs2k8s/cmd/root"
 )
 
 func main() {

@@ -13,10 +13,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package cmd
+package k8sCmd
 
 import (
 	"os"
+
+	root "codaglobal/ecs2k8s/cmd/root"
 
 	"github.com/spf13/cobra"
 )
@@ -33,7 +35,7 @@ var k8sCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(k8sCmd)
+	root.RootCmd.AddCommand(k8sCmd)
 	k8sCmd.PersistentFlags().String("deployment", "", "A valid deployment in K8s")
 	k8sCmd.PersistentFlags().String("container-name", "", "Name of the container inside the task, if more than one container is specified in that task")
 	k8sCmd.PersistentFlags().StringP("namespace", "n", "", "The Kubernetes namespace in which the deployment needs to be created")
