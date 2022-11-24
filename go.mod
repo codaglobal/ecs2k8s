@@ -1,4 +1,4 @@
-module github.com/Hansel-Christopher/ecs2k8s
+module codaglobal/ecs2k8s
 
 go 1.16
 
