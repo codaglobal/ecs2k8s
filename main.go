@@ -17,6 +17,7 @@ package main
 
 import (
 	_ "codaglobal/ecs2k8s/cmd/ecs"
+	_ "codaglobal/ecs2k8s/cmd/k8s"
 	cmd "codaglobal/ecs2k8s/cmd/root"
 )
 
