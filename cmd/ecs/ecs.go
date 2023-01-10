@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ecsCmd repr esents the root ecs command
+// ecsCmd represents the root ecs command
 var ecsCmd = &cobra.Command{
 	Use:   "ecs",
 	Short: "A set of commands to work with an existing AWS ECS cluster.",
