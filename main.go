@@ -15,7 +15,11 @@ limitations under the License.
 */
 package main
 
-import "github.com/Hansel-Christopher/ecs2k8s/cmd"
+import (
+	_ "codaglobal/ecs2k8s/cmd/ecs"
+	_ "codaglobal/ecs2k8s/cmd/k8s"
+	cmd "codaglobal/ecs2k8s/cmd/root"
+)
 
 func main() {
 	cmd.Execute()
