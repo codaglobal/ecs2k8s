@@ -110,8 +110,12 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 	// Imports container definition – Name, Image, Port mapping
 	for _, object := range output.TaskDefinition.ContainerDefinitions {
 		var containerPorts []apiv1.ContainerPort
+		var envVars []apiv1.EnvVar
 
 		PortMappings := object.PortMappings
+		EnvironmentVars := object.Environment
+
+		// Port mapping
 		for _, object := range PortMappings {
 			cp := apiv1.ContainerPort{
 				HostPort:      *object.HostPort,
@@ -121,11 +125,21 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 			containerPorts = append(containerPorts, cp)
 		}
 
+		// Environment variable mapping
+		for _, env := range EnvironmentVars {
+			ev := apiv1.EnvVar{
+				Name:  *env.Name,
+				Value: *env.Value,
+			}
+			envVars = append(envVars, ev)
+		}
+
 		c := apiv1.Container{
 			Name:    *object.Name,
 			Image:   *object.Image,
 			Ports:   containerPorts,
 			Command: object.Command,
+			Env:     envVars,
 		}
 
 		c.Resources = apiv1.ResourceRequirements{
@@ -176,8 +190,6 @@ func generateDeploymentFile(d *appsv1.Deployment, fileName string, yaml bool) {
 	}
 }
 
-func getK8Spec() {
-
-}
+func getK8Spec() {}
 
 func generateTaskDefinition() {}
