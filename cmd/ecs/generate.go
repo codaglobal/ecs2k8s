@@ -114,6 +114,7 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 
 		PortMappings := object.PortMappings
 		EnvironmentVars := object.Environment
+		Secrets := object.Secrets
 
 		// Port mapping
 		for _, object := range PortMappings {
@@ -130,6 +131,14 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 			ev := apiv1.EnvVar{
 				Name:  *env.Name,
 				Value: *env.Value,
+			}
+			envVars = append(envVars, ev)
+		}
+
+		for _, secret := range Secrets {
+			ev := apiv1.EnvVar{
+				Name:  *secret.Name,
+				Value: *secret.ValueFrom,
 			}
 			envVars = append(envVars, ev)
 		}
@@ -189,6 +198,8 @@ func generateDeploymentFile(d *appsv1.Deployment, fileName string, yaml bool) {
 		_ = ioutil.WriteFile(fileName, bytes, 0644)
 	}
 }
+
+func fetchAwsSecret() {}
 
 func getK8Spec() {}
 
