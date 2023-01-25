@@ -144,7 +144,8 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 
 		c.Resources = apiv1.ResourceRequirements{
 			Limits: apiv1.ResourceList{
-				"cpu":    resource.MustParse(fmt.Sprintf("%d%s", object.Cpu, "m")),
+				// 1024 = 1vCPU in ECS <=> 1 CPU unit in K8s; 0.1CPU = 100m
+				"cpu":    resource.MustParse(fmt.Sprintf("%.2f", float64(object.Cpu)/float64(1024))),
 				"memory": resource.MustParse(fmt.Sprintf("%d%s", *object.Memory, "Mi")),
 			},
 		}
