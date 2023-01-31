@@ -64,8 +64,12 @@ var generateCmd = &cobra.Command{
 
 		td := getTaskDefiniton(taskDefintion)
 		d := generateDeploymentObject(td, rCount, namespace)
-		generateDeploymentFile(d, fileName, yaml)
 
+		s := createK8sSecret(d.kubernetesDeployment.Name, d.secretData, namespace)
+
+		fmt.Println(s)
+
+		generateK8sSpecFile(&d.kubernetesDeployment, fileName, yaml)
 	},
 }
 
@@ -95,10 +99,16 @@ func getTaskDefiniton(taskDefinition string) ecs.DescribeTaskDefinitionOutput {
 	return *output
 }
 
+type DeploymentObject struct {
+	kubernetesDeployment appsv1.Deployment
+	secretData           map[string][]byte
+}
+
 // Generate K8s deployment object
-func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount int32, namespace string) *appsv1.Deployment {
+func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount int32, namespace string) DeploymentObject {
 	var kubeContainers []apiv1.Container
 	var kubeLabels map[string]string = make(map[string]string)
+	secretData := make(map[string][]byte)
 
 	// Imports tags to labels
 	for _, object := range output.Tags {
@@ -109,9 +119,12 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 
 	// Imports container definition – Name, Image, Port mapping
 	for _, object := range output.TaskDefinition.ContainerDefinitions {
+		// K8s object declarations
 		var containerPorts []apiv1.ContainerPort
 		var envVars []apiv1.EnvVar
+		var secretEnvVars []apiv1.EnvFromSource
 
+		// ECS object
 		PortMappings := object.PortMappings
 		EnvironmentVars := object.Environment
 		Secrets := object.Secrets
@@ -136,11 +149,17 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 		}
 
 		for _, secret := range Secrets {
-			ev := apiv1.EnvVar{
-				Name:  *secret.Name,
-				Value: *secret.ValueFrom,
+			sev := apiv1.EnvFromSource{
+				SecretRef: &apiv1.SecretEnvSource{
+					LocalObjectReference: apiv1.LocalObjectReference{
+						Name: *secret.Name,
+					},
+				},
 			}
-			envVars = append(envVars, ev)
+
+			secretData[*secret.Name] = []byte(*secret.ValueFrom)
+
+			secretEnvVars = append(secretEnvVars, sev)
 		}
 
 		c := apiv1.Container{
@@ -149,6 +168,7 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 			Ports:   containerPorts,
 			Command: object.Command,
 			Env:     envVars,
+			EnvFrom: secretEnvVars,
 		}
 
 		c.Resources = apiv1.ResourceRequirements{
@@ -182,21 +202,39 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 			},
 		},
 	}
-	return deployment
+	return DeploymentObject{
+		secretData:           secretData,
+		kubernetesDeployment: *deployment,
+	}
 }
 
-func generateDeploymentFile(d *appsv1.Deployment, fileName string, yaml bool) {
+func generateK8sSpecFile(d *appsv1.Deployment, fileName string, yaml bool) {
 	bytes, _ := json.MarshalIndent(d, "", "  ")
 	if yaml {
+		// Change to generate with --- between objects
 		y, _ := gyaml.JSONToYAML(bytes)
 		fileName = fileName + ".yaml"
 		fmt.Println("Writing K8s Deployment YAML file to : ", fileName)
 		_ = ioutil.WriteFile(fileName, y, 0644)
 	} else {
+		// Change to generate as list of K8s objects
+
 		fileName = fileName + ".json"
 		fmt.Println("Writing K8s Deployment JSON file to : ", fileName)
 		_ = ioutil.WriteFile(fileName, bytes, 0644)
 	}
+}
+
+func createK8sSecret(secretName string, data map[string][]byte, namespace string) apiv1.Secret {
+	secret := apiv1.Secret{
+		TypeMeta: metav1.TypeMeta{APIVersion: apiv1.SchemeGroupVersion.String(), Kind: "Secret"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: namespace,
+		},
+		Data: data,
+	}
+	return secret
 }
 
 func fetchAwsSecret() {}
