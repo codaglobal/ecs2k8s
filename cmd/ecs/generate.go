@@ -16,6 +16,7 @@ limitations under the License.
 package ecsCmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -28,6 +29,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/spf13/cobra"
 
+	"github.com/aws/aws-secretsmanager-caching-go/secretcache"
 	// "gopkg.in/yaml.v2"
 	gyaml "github.com/ghodss/yaml"
 	appsv1 "k8s.io/api/apps/v1"
@@ -65,11 +67,11 @@ var generateCmd = &cobra.Command{
 		td := getTaskDefiniton(taskDefintion)
 		d := generateDeploymentObject(td, rCount, namespace)
 
-		s := createK8sSecret(d.kubernetesDeployment.Name, d.secretData, namespace)
-
-		fmt.Println(s)
-
-		generateK8sSpecFile(&d.kubernetesDeployment, fileName, yaml)
+		kubeObjects := []interface{}{
+			&d.kubernetesDeployment,
+			&d.kubernetesSecrets,
+		}
+		generateK8sSpecFile(kubeObjects, fileName, yaml)
 	},
 }
 
@@ -101,11 +103,12 @@ func getTaskDefiniton(taskDefinition string) ecs.DescribeTaskDefinitionOutput {
 
 type DeploymentObject struct {
 	kubernetesDeployment appsv1.Deployment
-	secretData           map[string][]byte
+	kubernetesSecrets    []apiv1.Secret
 }
 
 // Generate K8s deployment object
 func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount int32, namespace string) DeploymentObject {
+	var secrets []apiv1.Secret
 	var kubeContainers []apiv1.Container
 	var kubeLabels map[string]string = make(map[string]string)
 	secretData := make(map[string][]byte)
@@ -157,8 +160,10 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 				},
 			}
 
-			secretData[*secret.Name] = []byte(*secret.ValueFrom)
-
+			secretValue := fetchAwsSecret(*secret.ValueFrom)
+			secretData[*secret.Name] = []byte(secretValue)
+			s := createK8sSecret(*secret.Name, secretData, namespace)
+			secrets = append(secrets, s)
 			secretEnvVars = append(secretEnvVars, sev)
 		}
 
@@ -203,25 +208,39 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 		},
 	}
 	return DeploymentObject{
-		secretData:           secretData,
+		kubernetesSecrets:    secrets,
 		kubernetesDeployment: *deployment,
 	}
 }
 
-func generateK8sSpecFile(d *appsv1.Deployment, fileName string, yaml bool) {
-	bytes, _ := json.MarshalIndent(d, "", "  ")
+func mergeKubeObjects(kubeObjects []interface{}, yaml bool) string {
+	var mergedObject string
+
+	var buffer bytes.Buffer
+
 	if yaml {
-		// Change to generate with --- between objects
-		y, _ := gyaml.JSONToYAML(bytes)
+		for _, obj := range kubeObjects {
+			bytes, _ := json.MarshalIndent(obj, "", "  ")
+			y, _ := gyaml.JSONToYAML(bytes)
+			buffer.Write(y)
+			buffer.WriteString("---\n")
+		}
+		mergedObject = buffer.String()
+	} else {
+		// for _, obj := range kubeObjects {
+
+		// }
+	}
+	return mergedObject
+}
+
+func generateK8sSpecFile(kubeObjects []interface{}, fileName string, yaml bool) {
+	if yaml {
+		k := mergeKubeObjects(kubeObjects, yaml)
 		fileName = fileName + ".yaml"
 		fmt.Println("Writing K8s Deployment YAML file to : ", fileName)
-		_ = ioutil.WriteFile(fileName, y, 0644)
+		_ = ioutil.WriteFile(fileName, []byte(k), 0644)
 	} else {
-		// Change to generate as list of K8s objects
-
-		fileName = fileName + ".json"
-		fmt.Println("Writing K8s Deployment JSON file to : ", fileName)
-		_ = ioutil.WriteFile(fileName, bytes, 0644)
 	}
 }
 
@@ -237,7 +256,12 @@ func createK8sSecret(secretName string, data map[string][]byte, namespace string
 	return secret
 }
 
-func fetchAwsSecret() {}
+func fetchAwsSecret(secretId string) string {
+	var secretCache, _ = secretcache.New()
+	result, _ := secretCache.GetSecretString(secretId)
+	fmt.Println(result)
+	return result
+}
 
 func getK8Spec() {}
 
