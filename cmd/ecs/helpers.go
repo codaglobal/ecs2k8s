@@ -36,13 +36,18 @@ func askForConfirmation() bool {
 	}
 }
 
+const (
+	labelSpecialChars = `[&\/\\#,+()$~%.'":*?<>{}@]`
+	envSpecialChars   = `[&-\/\\#,+()$~%._'":*?<>{}@]`
+)
+
 // Utility function to sanitize a string for K8s
-func sanitizeValue(specialString string) string {
-	re, err := regexp.Compile(`[&\/\\#,+()$~%.'":*?<>{}@]`)
+func sanitizeValue(inputString string, specialChars string, replaceChar string) string {
+	re, err := regexp.Compile(specialChars)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return re.ReplaceAllString(specialString, "-")
+	return re.ReplaceAllString(inputString, replaceChar)
 }
 
 func exists(path string) (bool, error) {

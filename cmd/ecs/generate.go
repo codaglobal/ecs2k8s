@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
@@ -69,7 +70,7 @@ var generateCmd = &cobra.Command{
 
 		kubeObjects := []interface{}{
 			&d.kubernetesDeployment,
-			&d.kubernetesSecrets,
+			&d.kubernetesSecrets[0],
 		}
 		generateK8sSpecFile(kubeObjects, fileName, yaml)
 	},
@@ -111,12 +112,11 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 	var secrets []apiv1.Secret
 	var kubeContainers []apiv1.Container
 	var kubeLabels map[string]string = make(map[string]string)
-	secretData := make(map[string][]byte)
 
 	// Imports tags to labels
 	for _, object := range output.Tags {
-		key := sanitizeValue(*object.Key)
-		value := sanitizeValue(*object.Value)
+		key := sanitizeValue(*object.Key, labelSpecialChars, "-")
+		value := sanitizeValue(*object.Value, labelSpecialChars, "-")
 		kubeLabels[key] = value
 	}
 
@@ -125,8 +125,6 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 		// K8s object declarations
 		var containerPorts []apiv1.ContainerPort
 		var envVars []apiv1.EnvVar
-		var secretEnvVars []apiv1.EnvFromSource
-
 		// ECS object
 		PortMappings := object.PortMappings
 		EnvironmentVars := object.Environment
@@ -151,20 +149,38 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 			envVars = append(envVars, ev)
 		}
 
-		for _, secret := range Secrets {
-			sev := apiv1.EnvFromSource{
-				SecretRef: &apiv1.SecretEnvSource{
-					LocalObjectReference: apiv1.LocalObjectReference{
-						Name: *secret.Name,
+		// ECS Secrets (Secrets Manager) mounted as Environment variables from Kubernetes Secrets
+
+		// var kubeSecrets []string
+		for _, ecsSecret := range Secrets {
+			secretData := make(map[string][]byte)
+			envVarName := sanitizeValue(*ecsSecret.Name, envSpecialChars, "")
+
+			secretName, secretValue, secretKey := parseSecret(*ecsSecret.ValueFrom)
+
+			// If key is not provided in valueFrom of ECS Secret, we are using environment variable name as key and entire secret is available in the env var
+			if secretKey == "" {
+				secretKey = envVarName
+			}
+
+			secretData[secretKey] = []byte(secretValue)
+
+			sev := apiv1.EnvVar{
+				Name: envVarName,
+				ValueFrom: &apiv1.EnvVarSource{
+					SecretKeyRef: &apiv1.SecretKeySelector{
+						LocalObjectReference: apiv1.LocalObjectReference{
+							Name: secretName,
+						},
+						Key: secretKey,
 					},
 				},
 			}
 
-			secretValue := fetchAwsSecret(*secret.ValueFrom)
-			secretData[*secret.Name] = []byte(secretValue)
-			s := createK8sSecret(*secret.Name, secretData, namespace)
+			s := createK8sSecret(secretName, secretData, namespace)
+
 			secrets = append(secrets, s)
-			secretEnvVars = append(secretEnvVars, sev)
+			envVars = append(envVars, sev)
 		}
 
 		c := apiv1.Container{
@@ -173,7 +189,6 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 			Ports:   containerPorts,
 			Command: object.Command,
 			Env:     envVars,
-			EnvFrom: secretEnvVars,
 		}
 
 		c.Resources = apiv1.ResourceRequirements{
@@ -227,8 +242,8 @@ func mergeKubeObjects(kubeObjects []interface{}, yaml bool) string {
 		}
 		mergedObject = buffer.String()
 	} else {
+		// Generate objects as Kind list
 		// for _, obj := range kubeObjects {
-
 		// }
 	}
 	return mergedObject
@@ -256,11 +271,26 @@ func createK8sSecret(secretName string, data map[string][]byte, namespace string
 	return secret
 }
 
-func fetchAwsSecret(secretId string) string {
+func getValueFromSecretsManager(secretId string) string {
 	var secretCache, _ = secretcache.New()
-	result, _ := secretCache.GetSecretString(secretId)
-	fmt.Println(result)
-	return result
+	secretValue, _ := secretCache.GetSecretString(secretId)
+	return secretValue
+}
+
+func parseSecret(secretArn string) (string, string, string) {
+	var secretName, secretValue, secretJsonKey string
+	s := strings.Split(secretArn, ":")
+	secretType := s[2]
+
+	if secretType == "secretsmanager" {
+		secretJsonKey = s[7]
+		secretName = strings.ToLower(sanitizeValue(s[6], envSpecialChars, "-")) // K8s secret names can be only - lowercase alnum, '-', '.'
+		secretValue = getValueFromSecretsManager(strings.Join(s[:7], ":"))
+	} else {
+		// Support values from AWS Systems Manager
+	}
+
+	return secretName, secretValue, secretJsonKey
 }
 
 func getK8Spec() {}
