@@ -156,14 +156,14 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 			secretData := make(map[string][]byte)
 			envVarName := sanitizeValue(*ecsSecret.Name, envSpecialChars, "")
 
-			secretName, secretValue, secretKey := parseSecret(*ecsSecret.ValueFrom)
+			secretName, secretData, secretKey := parseSecret(*ecsSecret.ValueFrom)
 
 			// If key is not provided in valueFrom of ECS Secret, we are using environment variable name as key and entire secret is available in the env var
-			if secretKey == "" {
-				secretKey = envVarName
-			}
+			// if secretKey == "" {
+			// 	secretKey = envVarName
+			// }
 
-			secretData[secretKey] = []byte(secretValue)
+			// secretData[secretKey] = []byte(secretValue)
 
 			sev := apiv1.EnvVar{
 				Name: envVarName,
@@ -271,23 +271,30 @@ func createK8sSecret(secretName string, data map[string][]byte, namespace string
 	return secret
 }
 
-func getValueFromSecretsManager(secretId string) string {
+func getValueFromSecretsManager(secretId string) map[string][]byte {
 	var secretCache, _ = secretcache.New()
 	secretValue, _ := secretCache.GetSecretString(secretId)
-	return secretValue
+	var jsonMap map[string][]byte
+	json.Unmarshal([]byte(secretValue), &jsonMap)
+	return jsonMap
 }
 
-func parseSecret(secretArn string) (string, string, string) {
-	var secretName, secretValue, secretJsonKey string
+func parseSecret(secretArn string) (string, map[string][]byte, string) {
+	var secretName, secretJsonKey string
+	var secretValue map[string][]byte
 	s := strings.Split(secretArn, ":")
-	secretType := s[2]
 
-	if secretType == "secretsmanager" {
-		secretJsonKey = s[7]
+	switch secretType := s[2]; secretType {
+	case "secretsmanager":
 		secretName = strings.ToLower(sanitizeValue(s[6], envSpecialChars, "-")) // K8s secret names can be only - lowercase alnum, '-', '.'
+		secretJsonKey = s[7]
+		if secretJsonKey == "" {
+			fmt.Println("Secret JSON key is required in K8s spec")
+			os.Exit(1)
+		}
 		secretValue = getValueFromSecretsManager(strings.Join(s[:7], ":"))
-	} else {
-		// Support values from AWS Systems Manager
+	case "systemsmanager":
+		// Support for secrets from AWS Systems Manager
 	}
 
 	return secretName, secretValue, secretJsonKey
