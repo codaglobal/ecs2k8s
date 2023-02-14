@@ -18,6 +18,7 @@ package ecsCmd
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -275,8 +276,17 @@ func getValueFromSecretsManager(secretId string) map[string][]byte {
 	var secretCache, _ = secretcache.New()
 	secretValue, _ := secretCache.GetSecretString(secretId)
 	var jsonMap map[string][]byte
+	var transformedMap map[string][]byte = make(map[string][]byte)
+
 	json.Unmarshal([]byte(secretValue), &jsonMap)
-	return jsonMap
+	for index, v := range jsonMap {
+		s := base64.StdEncoding.EncodeToString(v)
+		transformedMap[index] = []byte(s)
+	}
+	return transformedMap
+	// TODO:
+	// Call createK8sSecret here
+	// Check before creating secret
 }
 
 func parseSecret(secretArn string) (string, map[string][]byte, string) {
