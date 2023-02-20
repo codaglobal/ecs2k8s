@@ -104,11 +104,6 @@ func getTaskDefiniton(taskDefinition string) ecs.DescribeTaskDefinitionOutput {
 	return *output
 }
 
-type DeploymentObject struct {
-	kubernetesDeployment appsv1.Deployment
-	kubernetesSecrets    []apiv1.Secret
-}
-
 var secrets []apiv1.Secret
 
 // Generate K8s deployment object
