@@ -53,7 +53,7 @@ var migrateCmd = &cobra.Command{
 
 		td := getTaskDefiniton(taskDefintion)
 		d := generateDeploymentObject(td, rCount, namespace)
-		createKubeDeployment(&d.kubernetesDeployment, kubeConfigFile)
+		createKubeDeployment(&d, kubeConfigFile)
 	},
 }
 
