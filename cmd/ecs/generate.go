@@ -67,13 +67,13 @@ var generateCmd = &cobra.Command{
 		}
 
 		td := getTaskDefiniton(taskDefintion)
-		d := generateDeploymentObject(td, rCount, namespace)
+		d := generateDeploymentObject(td, rCount, namespace, false)
 
 		var kubeObjects []interface{}
 
 		kubeObjects = append(kubeObjects, &d)
 		kubeObjects = append(kubeObjects, secrets)
-		
+
 		generateK8sSpecFile(kubeObjects, fileName, yaml)
 	},
 }
@@ -107,7 +107,7 @@ func getTaskDefiniton(taskDefinition string) ecs.DescribeTaskDefinitionOutput {
 var secrets []apiv1.Secret
 
 // Generate K8s deployment object
-func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount int32, namespace string) appsv1.Deployment {	
+func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount int32, namespace string, apply bool) appsv1.Deployment {
 	var kubeContainers []apiv1.Container
 	var kubeLabels map[string]string = make(map[string]string)
 
@@ -154,7 +154,9 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 			// secretData := make(map[string][]byte)
 			envVarName := sanitizeValue(*ecsSecret.Name, envSpecialChars, "")
 
-			secretName, secretKey := parseSecret(*ecsSecret.ValueFrom)
+			secretName, secretKey, secretValue := parseSecret(*ecsSecret.ValueFrom)
+
+			generateK8sSecret(secretName, secretValue, namespace, apply)
 
 			sev := apiv1.EnvVar{
 				Name: envVarName,
@@ -168,7 +170,6 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 				},
 			}
 
-			
 			envVars = append(envVars, sev)
 		}
 
@@ -211,6 +212,10 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 			},
 		},
 	}
+
+	if apply {
+		createKubeDeployment(deployment)
+	}
 	return *deployment
 }
 
@@ -229,8 +234,20 @@ func mergeKubeObjects(kubeObjects []interface{}, yaml bool) string {
 		mergedObject = buffer.String()
 	} else {
 		// Generate objects as Kind list
-		// for _, obj := range kubeObjects {
+		// list := corev1.List{
+		// 	TypeMeta: metav1.TypeMeta{
+		// 		Kind:       "List",
+		// 		APIVersion: "v1",
+		// 	},
+		// 	ListMeta: metav1.ListMeta{},
 		// }
+
+		// for _, obj := range kubeObjects {
+
+		// 	list.Items = append(list.Items, runtime.RawExtension{Object: obj})
+
+		// }
+		// fmt.Println(jsonKubeObjects)
 	}
 	return mergedObject
 }
@@ -245,7 +262,7 @@ func generateK8sSpecFile(kubeObjects []interface{}, fileName string, yaml bool) 
 	}
 }
 
-func createK8sSecret(secretName string, data map[string][]byte, namespace string) {	
+func generateK8sSecret(secretName string, data map[string][]byte, namespace string, apply bool) {
 	// Check if K8s secret exists already and then create
 	var secretExists bool = false
 
@@ -264,7 +281,10 @@ func createK8sSecret(secretName string, data map[string][]byte, namespace string
 				Namespace: namespace,
 			},
 			Data: data,
-		}		
+		}
+		if apply {
+			createKubeSecret(&secret)
+		}
 		secrets = append(secrets, secret)
 	}
 }
@@ -275,7 +295,7 @@ func getValueFromSecretsManager(secretId string) map[string][]byte {
 	var secretCache, _ = secretcache.New()
 	secretValue, _ := secretCache.GetSecretString(secretId)
 
-	if( secretValue == ""){
+	if secretValue == "" {
 		fmt.Println("Empty value returned for specified secret ID. Check if secret exists in this account.")
 	}
 
@@ -283,11 +303,11 @@ func getValueFromSecretsManager(secretId string) map[string][]byte {
 	for index, v := range jsonMap {
 		s := base64.StdEncoding.EncodeToString(v)
 		transformedMap[index] = []byte(s)
-	}	
+	}
 	return transformedMap
 }
 
-func parseSecret(secretArn string) (string, string) {
+func parseSecret(secretArn string) (string, string, map[string][]byte) {
 	var secretName, secretJsonKey string
 	var secretValue map[string][]byte
 	s := strings.Split(secretArn, ":")
@@ -301,13 +321,13 @@ func parseSecret(secretArn string) (string, string) {
 			os.Exit(1)
 		}
 		secretValue = getValueFromSecretsManager(strings.Join(s[:7], ":"))
-		
-		createK8sSecret(secretName, secretValue, "default")						
+
+		// generateK8sSecret(secretName, secretValue, "default")
 	case "systemsmanager":
 		// Support for secrets from AWS Systems Manager
 	}
 
-	return secretName, secretJsonKey
+	return secretName, secretJsonKey, secretValue
 }
 
 func getK8Spec() {}
