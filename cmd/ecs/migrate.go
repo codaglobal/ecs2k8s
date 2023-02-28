@@ -24,7 +24,7 @@ import (
 
 	"github.com/spf13/cobra"
 	appsv1 "k8s.io/api/apps/v1"
-	apiv1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -119,7 +119,7 @@ func createKubeDeployment(deployment *appsv1.Deployment) {
 	fmt.Printf("Submitted new deployment %q.\n", result.GetObjectMeta().GetName())
 }
 
-func createKubeSecret(secret *apiv1.Secret) {
+func createKubeSecret(secret *corev1.Secret) {
 	fmt.Println(taskDefinition)
 	clientset, err := kubernetes.NewForConfig(kConfig)
 

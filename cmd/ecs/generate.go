@@ -32,10 +32,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/aws/aws-secretsmanager-caching-go/secretcache"
-	// "gopkg.in/yaml.v2"
 	gyaml "github.com/ghodss/yaml"
 	appsv1 "k8s.io/api/apps/v1"
-	apiv1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -104,11 +103,11 @@ func getTaskDefiniton(taskDefinition string) ecs.DescribeTaskDefinitionOutput {
 	return *output
 }
 
-var secrets []apiv1.Secret
+var secrets []corev1.Secret
 
 // Generate K8s deployment object
 func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount int32, namespace string, apply bool) appsv1.Deployment {
-	var kubeContainers []apiv1.Container
+	var kubeContainers []corev1.Container
 	var kubeLabels map[string]string = make(map[string]string)
 
 	// Imports tags to labels
@@ -121,8 +120,8 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 	// Imports container definition – Name, Image, Port mapping
 	for _, object := range output.TaskDefinition.ContainerDefinitions {
 		// K8s object declarations
-		var containerPorts []apiv1.ContainerPort
-		var envVars []apiv1.EnvVar
+		var containerPorts []corev1.ContainerPort
+		var envVars []corev1.EnvVar
 		// ECS object
 		PortMappings := object.PortMappings
 		EnvironmentVars := object.Environment
@@ -130,17 +129,17 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 
 		// Port mapping
 		for _, object := range PortMappings {
-			cp := apiv1.ContainerPort{
+			cp := corev1.ContainerPort{
 				HostPort:      *object.HostPort,
 				ContainerPort: *object.ContainerPort,
-				Protocol:      apiv1.ProtocolTCP,
+				Protocol:      corev1.ProtocolTCP,
 			}
 			containerPorts = append(containerPorts, cp)
 		}
 
 		// Environment variable mapping
 		for _, env := range EnvironmentVars {
-			ev := apiv1.EnvVar{
+			ev := corev1.EnvVar{
 				Name:  *env.Name,
 				Value: *env.Value,
 			}
@@ -158,11 +157,11 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 
 			generateK8sSecret(secretName, secretValue, namespace, apply)
 
-			sev := apiv1.EnvVar{
+			sev := corev1.EnvVar{
 				Name: envVarName,
-				ValueFrom: &apiv1.EnvVarSource{
-					SecretKeyRef: &apiv1.SecretKeySelector{
-						LocalObjectReference: apiv1.LocalObjectReference{
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
 							Name: secretName,
 						},
 						Key: secretKey,
@@ -173,7 +172,7 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 			envVars = append(envVars, sev)
 		}
 
-		c := apiv1.Container{
+		c := corev1.Container{
 			Name:    *object.Name,
 			Image:   *object.Image,
 			Ports:   containerPorts,
@@ -181,8 +180,8 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 			Env:     envVars,
 		}
 
-		c.Resources = apiv1.ResourceRequirements{
-			Limits: apiv1.ResourceList{
+		c.Resources = corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
 				"cpu":    resource.MustParse(fmt.Sprintf("%d%s", object.Cpu, "m")),
 				"memory": resource.MustParse(fmt.Sprintf("%d%s", *object.Memory, "Mi")),
 			},
@@ -202,11 +201,11 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 			Selector: &metav1.LabelSelector{
 				MatchLabels: kubeLabels,
 			},
-			Template: apiv1.PodTemplateSpec{
+			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: kubeLabels,
 				},
-				Spec: apiv1.PodSpec{
+				Spec: corev1.PodSpec{
 					Containers: kubeContainers,
 				},
 			},
@@ -274,8 +273,8 @@ func generateK8sSecret(secretName string, data map[string][]byte, namespace stri
 	}
 
 	if !secretExists {
-		secret := apiv1.Secret{
-			TypeMeta: metav1.TypeMeta{APIVersion: apiv1.SchemeGroupVersion.String(), Kind: "Secret"},
+		secret := corev1.Secret{
+			TypeMeta: metav1.TypeMeta{APIVersion: corev1.SchemeGroupVersion.String(), Kind: "Secret"},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      secretName,
 				Namespace: namespace,
@@ -329,7 +328,3 @@ func parseSecret(secretArn string) (string, string, map[string][]byte) {
 
 	return secretName, secretJsonKey, secretValue
 }
-
-func getK8Spec() {}
-
-func generateTaskDefinition() {}
