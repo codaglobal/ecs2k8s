@@ -43,4 +43,5 @@ func init() {
 	ecsCmd.PersistentFlags().Bool("yaml", false, "Set this flag if spec file needs to generated in YAML, defaults to JSON")
 	ecsCmd.PersistentFlags().String("kubeconfig", "", "Config file for the K8s cluster, if parameter is not passed, checks $HOME/.kube directory and then KUBECONFIG environment variable")
 	ecsCmd.PersistentFlags().Int32("replicas", 1, "The replica count for the K8s deployment")
+	ecsCmd.PersistentFlags().Bool("include-secrets", false, "Set this flag to exclude secrets being created in Kubernetes")
 }

@@ -42,6 +42,8 @@ import (
 
 var secrets []corev1.Secret
 
+var includeSecrets bool
+
 // generateCmd represents the generate command
 var generateCmd = &cobra.Command{
 	Use:   "generate-k8s-spec",
@@ -53,6 +55,7 @@ var generateCmd = &cobra.Command{
 		rCount, _ := cmd.Flags().GetInt32("replicas")
 		yaml, _ := cmd.Flags().GetBool("yaml")
 		namespace, _ := cmd.Flags().GetString("namespace")
+		includeSecrets, _ = cmd.Flags().GetBool("include-secrets")
 
 		if fileName == "" {
 			fileName = getDefaultFileName()
@@ -165,28 +168,30 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 
 		// ECS Secrets (Secrets Manager) mounted as Environment variables from Kubernetes Secrets
 
-		// var kubeSecrets []string
-		for _, ecsSecret := range Secrets {
-			// secretData := make(map[string][]byte)
-			envVarName := sanitizeValue(*ecsSecret.Name, envSpecialChars, "")
+		if includeSecrets {
+			// var kubeSecrets []string
+			for _, ecsSecret := range Secrets {
+				// secretData := make(map[string][]byte)
+				envVarName := sanitizeValue(*ecsSecret.Name, envSpecialChars, "")
 
-			secretName, secretKey, secretValue := parseSecret(*ecsSecret.ValueFrom)
+				secretName, secretKey, secretValue := parseSecret(*ecsSecret.ValueFrom)
 
-			generateK8sSecret(secretName, secretValue, namespace, apply)
+				generateK8sSecret(secretName, secretValue, namespace, apply)
 
-			sev := corev1.EnvVar{
-				Name: envVarName,
-				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: &corev1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: secretName,
+				sev := corev1.EnvVar{
+					Name: envVarName,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: secretName,
+							},
+							Key: secretKey,
 						},
-						Key: secretKey,
 					},
-				},
-			}
+				}
 
-			envVars = append(envVars, sev)
+				envVars = append(envVars, sev)
+			}
 		}
 
 		c := corev1.Container{
