@@ -101,7 +101,7 @@ func createKubeDeployment(deployment *appsv1.Deployment) {
 		panic(err)
 	}
 
-	fmt.Print("Proceed with deploying: ", deployment.ObjectMeta.Name, " (yes/no): ")
+	fmt.Print("Proceed with creating Deployment: ", deployment.ObjectMeta.Name, " (yes/no): ")
 
 	deploy := askForConfirmation()
 	if !deploy {
@@ -116,12 +116,22 @@ func createKubeDeployment(deployment *appsv1.Deployment) {
 		panic(err)
 	}
 
-	fmt.Printf("Submitted new deployment %q.\n", result.GetObjectMeta().GetName())
+	fmt.Printf("Created new deployment %q.\n", result.GetObjectMeta().GetName())
 }
 
 func createKubeSecret(secret *corev1.Secret) {
-	fmt.Println(taskDefinition)
+	fmt.Print("Proceed with creating Secret: ", secret.ObjectMeta.Name, " (yes/no): ")
+	deploy := askForConfirmation()
+
+	if !deploy {
+		return
+	}
+
 	clientset, err := kubernetes.NewForConfig(kConfig)
+
+	if err != nil {
+		panic(err)
+	}
 
 	secret, err = clientset.CoreV1().Secrets(secret.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 
@@ -129,4 +139,6 @@ func createKubeSecret(secret *corev1.Secret) {
 		log.Println("Deployment failed", err)
 		panic(err)
 	}
+
+	fmt.Printf("Created new secret %q.\n", secret.GetObjectMeta().GetName())
 }
