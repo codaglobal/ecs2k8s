@@ -16,7 +16,6 @@ limitations under the License.
 package ecsCmd
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -35,9 +34,13 @@ import (
 	gyaml "github.com/ghodss/yaml"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
+
+var secrets []corev1.Secret
 
 // generateCmd represents the generate command
 var generateCmd = &cobra.Command{
@@ -68,12 +71,28 @@ var generateCmd = &cobra.Command{
 		td := getTaskDefiniton(taskDefintion)
 		d := generateDeploymentObject(td, rCount, namespace, false)
 
-		var kubeObjects []interface{}
+		if len(secrets) > 0 {
+			var list = corev1.List{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "List",
+					APIVersion: "v1",
+				},
+				ListMeta: metav1.ListMeta{},
+			}
+			var objs = []runtime.Object{}
 
-		kubeObjects = append(kubeObjects, &d)
-		kubeObjects = append(kubeObjects, secrets)
+			objs = append(objs, runtime.Object(&d))
+			for _, secret := range secrets {
+				objs = append(objs, runtime.Object(&secret))
+			}
 
-		generateK8sSpecFile(kubeObjects, fileName, yaml)
+			if err := meta.SetList(&list, objs); err != nil {
+				return
+			}
+			generateK8sSpecFile(list, fileName, yaml)
+		} else {
+			generateK8sSpecFile(d, fileName, yaml)
+		}
 	},
 }
 
@@ -102,8 +121,6 @@ func getTaskDefiniton(taskDefinition string) ecs.DescribeTaskDefinitionOutput {
 
 	return *output
 }
-
-var secrets []corev1.Secret
 
 // Generate K8s deployment object
 func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount int32, namespace string, apply bool) appsv1.Deployment {
@@ -218,46 +235,17 @@ func generateDeploymentObject(output ecs.DescribeTaskDefinitionOutput, rCount in
 	return *deployment
 }
 
-func mergeKubeObjects(kubeObjects []interface{}, yaml bool) string {
-	var mergedObject string
-
-	var buffer bytes.Buffer
-
+func generateK8sSpecFile(kubeObjects interface{}, fileName string, yaml bool) {
+	bytes, _ := json.MarshalIndent(kubeObjects, "", "  ")
 	if yaml {
-		for _, obj := range kubeObjects {
-			bytes, _ := json.MarshalIndent(obj, "", "  ")
-			y, _ := gyaml.JSONToYAML(bytes)
-			buffer.Write(y)
-			buffer.WriteString("---\n")
-		}
-		mergedObject = buffer.String()
-	} else {
-		// Generate objects as Kind list
-		// list := corev1.List{
-		// 	TypeMeta: metav1.TypeMeta{
-		// 		Kind:       "List",
-		// 		APIVersion: "v1",
-		// 	},
-		// 	ListMeta: metav1.ListMeta{},
-		// }
-
-		// for _, obj := range kubeObjects {
-
-		// 	list.Items = append(list.Items, runtime.RawExtension{Object: obj})
-
-		// }
-		// fmt.Println(jsonKubeObjects)
-	}
-	return mergedObject
-}
-
-func generateK8sSpecFile(kubeObjects []interface{}, fileName string, yaml bool) {
-	if yaml {
-		k := mergeKubeObjects(kubeObjects, yaml)
+		y, _ := gyaml.JSONToYAML(bytes)
 		fileName = fileName + ".yaml"
 		fmt.Println("Writing K8s Deployment YAML file to : ", fileName)
-		_ = ioutil.WriteFile(fileName, []byte(k), 0644)
+		_ = ioutil.WriteFile(fileName, y, 0644)
 	} else {
+		fileName = fileName + ".json"
+		fmt.Println("Writing K8s Deployment JSON file to : ", fileName)
+		_ = ioutil.WriteFile(fileName, bytes, 0644)
 	}
 }
 
@@ -320,10 +308,10 @@ func parseSecret(secretArn string) (string, string, map[string][]byte) {
 			os.Exit(1)
 		}
 		secretValue = getValueFromSecretsManager(strings.Join(s[:7], ":"))
-
-		// generateK8sSecret(secretName, secretValue, "default")
 	case "systemsmanager":
-		// Support for secrets from AWS Systems Manager
+		fmt.Println("Secrets from Systems Manager not suppported yet.")
+		os.Exit(1)
+		// TODO: Support for secrets from AWS Systems Manager
 	}
 
 	return secretName, secretJsonKey, secretValue
