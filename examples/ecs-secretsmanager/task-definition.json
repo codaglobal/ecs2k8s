@@ -1,0 +1,54 @@
+{
+    "containerDefinitions": [
+        {
+            "name": "nginx",
+            "image": "nginx:latest",
+            "cpu": 1024,
+            "memory": 256,
+            "portMappings": [
+                {
+                    "name": "nginx-80-tcp",
+                    "containerPort": 80,
+                    "hostPort": 0,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true,
+            "environment": [
+                {
+                    "name": "data",
+                    "value": "hello-world"
+                }
+            ],
+            "mountPoints": [],
+            "volumesFrom": [],
+            "secrets": [
+                {
+                    "name": "secret-env-1",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:<AWS_ACCOUNT_ID>:secret:<SECRET_NAME>:<SECRET_JSON_KEY>::"
+                },
+                {
+                    "name": "secret-env-2",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:<AWS_ACCOUNT_ID>:secret:<SECRET_NAME>:<SECRET_JSON_KEY>::"
+                }
+            ]
+        }
+    ],
+    "family": "nginx-sample-poc",
+    "executionRoleArn": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/ecsTaskExecutionRole",
+    "networkMode": "bridge",
+    "revision": 25,
+    "volumes": [],    
+    "requiresAttributes": [
+        {
+            "name": "ecs.capability.secrets.asm.environment-variables"
+        }
+    ],
+    "placementConstraints": [],
+    "compatibilities": [
+        "EC2"
+    ],
+    "requiresCompatibilities": [
+        "EC2"
+    ]
+}
